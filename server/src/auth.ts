@@ -1,9 +1,11 @@
 import { Cookie } from "elysia";
 
 export type UserId = string;
+export type providerIds = "email" | "github" | "google";
+export type CredentialsState = "valid" | "invalid" | "inexistant";
 
 export interface UserCredentials {
-  providerId: string;
+  providerId: providerIds;
   providerUserId: string;
   password: string;
 }
@@ -30,6 +32,5 @@ export interface AuthInterface {
 }
 
 class fitAuth {
-  
 }
 // export current authenticator

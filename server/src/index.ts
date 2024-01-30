@@ -27,5 +27,9 @@ const SERVER_PORT: number = 3000;
 //     () => console.log("Server starting at PORT:", SERVER_PORT),
 //   );
 
-console.log(await db.isProviderUserIdUnique("sldkfjdklom"));
+console.log(await db.getUserIdFromCredentials({
+  providerId: "email",
+  providerUserId: "bechir@email.com",
+  password: "123"
+}));
 // export type ServerApp = typeof app;

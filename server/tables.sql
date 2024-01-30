@@ -5,6 +5,7 @@ CREATE TABLE keys (
   user_id TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   provider_user_id TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users (user_id)
 );
 
