@@ -1,4 +1,4 @@
-import { Session, UserCredentials, UserId, CredentialsState } from "./auth";
+import { CredentialsState, Session, UserCredentials, UserId } from "./auth";
 import { Database } from "bun:sqlite";
 import { alphabet, generateRandomString } from "oslo/crypto";
 import { password as bunPassword } from "bun";
@@ -10,23 +10,23 @@ export interface DBInterface {
   ): Promise<UserId | null>;
   verifyUserCredentials(
     userCredentials: UserCredentials,
-  ): Promise<UserId>;
-  deleteUser(userId: UserId): Promise<UserId>;
-  addSession(session: Session): Promise<Session>;
+  ): Promise<CredentialsState>;
+  deleteUser(userId: UserId): Promise<void>;
+  addSession(session: Session): Promise<boolean>;
   deleteSession(session: Session): Promise<Session>;
 }
 
 const DB_NAME = "db.sqlite";
 
-interface usersTable {
+interface UsersTable {
   user_id: string;
 }
-interface sessionsTable {
+interface SessionsTable {
   user_id: string;
   session_id: string;
   expires_at: string;
 }
-interface keysTable {
+interface KeysTable {
   user_id: string;
   provider_id: string;
   provider_user_id: string;
@@ -40,14 +40,14 @@ enum TableNames {
 }
 
 type TableName = "users" | "keys" | "sessions";
-type TableColumns = usersTable | keysTable | sessionsTable;
+type TableColumns = UsersTable | KeysTable | SessionsTable;
 
 interface TableRow<Columns = TableColumns> {
   name: TableName;
   columns: Columns;
 }
 
-class sqliteDB {
+class bunSQLiteDB implements DBInterface {
   private db;
 
   private insertIntoTable<ColumnType extends TableColumns>(
@@ -87,10 +87,12 @@ class sqliteDB {
     );
   }
 
-  async userExists(userId: UserId): Promise<any> {
-    return this.db.query(
-      `select * from ${TableNames.USERS} where user_id = "${userId}"`,
-    ).get();
+  private async userExists(userId: UserId): Promise<boolean> {
+    return Boolean(
+      this.db.query(
+        `select * from ${TableNames.USERS} where user_id = "${userId}"`,
+      ).get(),
+    );
   }
 
   async addCredentialstoUser(
@@ -104,7 +106,7 @@ class sqliteDB {
       throw new Error("providerUserId already exists.");
     }
 
-    this.insertIntoTable<keysTable>({
+    this.insertIntoTable<KeysTable>({
       name: "keys",
       columns: {
         user_id: userId,
@@ -130,7 +132,7 @@ class sqliteDB {
       throw new Error("Can't add user, user already exists.");
     }
 
-    this.insertIntoTable<usersTable>({
+    this.insertIntoTable<UsersTable>({
       name: "users",
       columns: {
         user_id: userId,
@@ -158,7 +160,6 @@ class sqliteDB {
   async verifyUserCredentials(
     { providerUserId, providerId, password }: UserCredentials,
   ): Promise<CredentialsState> {
-    
     const query = `
     SELECT * FROM ${TableNames.KEYS}
     WHERE (provider_user_id = '${providerUserId}') AND (provider_id = '${providerId}')
@@ -178,8 +179,35 @@ class sqliteDB {
     return "valid";
   }
 
+  async addSession({ sessionId, userId }: Session): Promise<boolean> {
+    // !!! TEST THIS
+    this.insertIntoTable<SessionsTable>({
+      name: "sessions",
+      columns: {
+        session_id: sessionId,
+        user_id: userId,
+        expires_at: new Date().toISOString(),
+      },
+    });
+
+    return true;
+  }
+
+  async deleteUser(userId: UserId): Promise<void> {
+    const deleteKeysQuery: string =
+      `DELETE FROM ${TableNames.KEYS} WHERE user_id = '${userId}'`;
+    const deleteUserSessionsQuery: string =
+      `DELETE FROM ${TableNames.SESSIONS} WHERE user_id = '${userId}'`;
+    const deleteUserQuery: string =
+      `DELETE FROM ${TableNames.USERS} WHERE user_id = '${userId}'`;
+
+    this.db.exec(deleteKeysQuery);
+    this.db.exec(deleteUserSessionsQuery);
+    this.db.exec(deleteUserQuery);
+  }
+
   constructor(db: Database) {
     this.db = db;
   }
 }
-export const db = new sqliteDB(new Database(DB_NAME));
+export const db = new bunSQLiteDB(new Database(DB_NAME));
