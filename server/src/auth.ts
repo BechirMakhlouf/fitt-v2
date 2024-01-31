@@ -1,40 +1,18 @@
 import { Cookie } from "elysia";
-import { DBInterface } from "./db";
+import { db } from "./db";
 import { alphabet, generateRandomString } from "oslo/crypto";
+import {
+  AuthInterface,
+  CredentialsState,
+  DBInterface,
+  Session,
+  UserCredentials,
+  UserId,
+  UserInfo,
+} from "./types";
+import { addDaysToDate, compareDates } from "./libs/date";
 
-export type UserId = string;
-export type providerIds = "email" | "github" | "google";
-export type CredentialsState = "valid" | "invalid" | "inexistant";
-
-export interface UserCredentials {
-  providerId: providerIds;
-  providerUserId: string;
-  password: string;
-}
-
-export interface UserInfo {
-  UserId: string;
-  username: string;
-}
-
-export interface Session {
-  sessionId: string;
-  userId: string;
-  // expiresAt: Date;
-  // fresh: boolean;
-}
-
-export interface AuthInterface {
-  signUpUser(
-    userCredentials: UserCredentials,
-    userInfo?: UserInfo,
-  ): Promise<UserId>;
-  signInUser(userCredentials: UserCredentials): Promise<Session>;
-  signOutFromSession(session: Session): Promise<void>;
-  deleteUser(userId: UserId): Promise<void>;
-}
-
-class fitAuth implements AuthInterface{
+class fitAuth implements AuthInterface {
   private db: DBInterface;
 
   constructor(db: DBInterface) {
@@ -48,6 +26,7 @@ class fitAuth implements AuthInterface{
     const session: Session = {
       userId: userId,
       sessionId: this.generateSessionId(),
+      expiresAt: addDaysToDate(new Date(), 30),
     };
 
     await this.db.addSession(session);
@@ -79,15 +58,18 @@ class fitAuth implements AuthInterface{
   }
 
   async deleteUser(userId: UserId): Promise<void> {
-    await this.db.deleteUser(userId);
+    this.db.deleteUser(userId);
   }
 
   async signOutFromSession(session: Session): Promise<void> {
     this.db.deleteSession(session);
   }
 
-  // async signOutFromSession(session: Session): Promise<boolean> {
-  //
-  // }
+  async validateSession(sessionId: string): Promise<boolean> {
+    const session: Session | null = await this.db.getSessionFromId(sessionId);
+    if (!session) return false;
+    return compareDates(session.expiresAt, new Date());
+  }
 }
 // export current authenticator
+export const auth: AuthInterface = new fitAuth(db);

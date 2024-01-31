@@ -1,20 +1,15 @@
-import { CredentialsState, Session, UserCredentials, UserId } from "./auth";
+import {
+  CredentialsState,
+  DBInterface,
+  Session,
+  UserCredentials,
+  UserId,
+} from "./types";
+
 import { Database } from "bun:sqlite";
 import { alphabet, generateRandomString } from "oslo/crypto";
 import { password as bunPassword } from "bun";
-
-export interface DBInterface {
-  addUser(userCredentials: UserCredentials): Promise<UserId>;
-  getUserIdFromCredentials(
-    userCredentials: UserCredentials,
-  ): Promise<UserId | null>;
-  verifyUserCredentials(
-    userCredentials: UserCredentials,
-  ): Promise<CredentialsState>;
-  deleteUser(userId: UserId): Promise<void>;
-  addSession(session: Session): Promise<boolean>;
-  deleteSession(session: Session): Promise<Session>;
-}
+import { formatDateForSQLDateTime } from "./libs/date";
 
 const DB_NAME = "db.sqlite";
 
@@ -157,6 +152,8 @@ class bunSQLiteDB implements DBInterface {
 
     return result?.user_id || null;
   }
+
+  // move this to the auth provider
   async verifyUserCredentials(
     { providerUserId, providerId, password }: UserCredentials,
   ): Promise<CredentialsState> {
@@ -179,20 +176,27 @@ class bunSQLiteDB implements DBInterface {
     return "valid";
   }
 
-  async addSession({ sessionId, userId }: Session): Promise<boolean> {
+  async addSession(
+    { sessionId, userId, expiresAt }: Session,
+  ): Promise<boolean> {
     // !!! TEST THIS
     this.insertIntoTable<SessionsTable>({
       name: "sessions",
       columns: {
         session_id: sessionId,
         user_id: userId,
-        expires_at: new Date().toISOString(),
+        expires_at: formatDateForSQLDateTime(expiresAt),
       },
     });
 
     return true;
   }
-
+  async deleteSession(session: Session): Promise<void> {
+    const query = `
+      DELETE FROM ${TableNames.SESSIONS} WHERE session_id = '${session.sessionId}'
+    `;
+    this.db.exec(query);
+  }
   async deleteUser(userId: UserId): Promise<void> {
     const deleteKeysQuery: string =
       `DELETE FROM ${TableNames.KEYS} WHERE user_id = '${userId}'`;
@@ -206,6 +210,30 @@ class bunSQLiteDB implements DBInterface {
     this.db.exec(deleteUserQuery);
   }
 
+  async getSessionFromId(sessionId: string): Promise<Session | null> {
+    const query = `
+    select * from ${TableNames.SESSIONS} WHERE session_id = '${sessionId}'
+`;
+    const sessionRetreived = this.db.query<SessionsTable, any>(query).get();
+
+    if (!sessionRetreived) return null;
+
+    const session: Session = {
+      sessionId: sessionRetreived.session_id,
+      userId: sessionRetreived.user_id,
+      expiresAt: new Date(sessionRetreived.expires_at),
+    };
+
+    return session;
+  }
+
+  async deleteAllUserSessions(userId: string): Promise<void> {
+    const query = `
+    DELETE FROM ${TableNames.SESSIONS} WHERE user_id = '${userId}'
+    `;
+
+    this.db.exec(query);
+  }
   constructor(db: Database) {
     this.db = db;
   }
