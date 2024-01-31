@@ -48,7 +48,6 @@ class fitAuth implements AuthInterface {
     if (credentialsState !== "valid") {
       throw new Error(`User Credentials is ${credentialsState}`);
     }
-
     const userId = await this.db.getUserIdFromCredentials(userCredentials);
 
     if (!userId) throw new Error("couldn't find userId when signingIn");
