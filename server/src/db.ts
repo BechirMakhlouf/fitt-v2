@@ -191,9 +191,9 @@ class bunSQLiteDB implements DBInterface {
 
     return true;
   }
-  async deleteSession(session: Session): Promise<void> {
+  async deleteSession(sessionId: string): Promise<void> {
     const query = `
-      DELETE FROM ${TableNames.SESSIONS} WHERE session_id = '${session.sessionId}'
+      DELETE FROM ${TableNames.SESSIONS} WHERE session_id = '${sessionId}'
     `;
     this.db.exec(query);
   }

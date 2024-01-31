@@ -20,6 +20,9 @@ export const formatDateForSQLDate = function formatDateForSQLDateTime(
   return date.toISOString().slice(0, 10);
 };
 
-export const compareDates = function compareDates(date1: Date, date2: Date): boolean {
-  return date1.getTime() > date2.getTime()
-}
+export const compareDates = function compareDates(
+  date1: Date,
+  date2: Date,
+): boolean {
+  return date1.getTime() > date2.getTime();
+};

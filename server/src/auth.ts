@@ -1,4 +1,3 @@
-import { Cookie } from "elysia";
 import { db } from "./db";
 import { alphabet, generateRandomString } from "oslo/crypto";
 import {
@@ -61,14 +60,22 @@ class fitAuth implements AuthInterface {
     this.db.deleteUser(userId);
   }
 
-  async signOutFromSession(session: Session): Promise<void> {
-    this.db.deleteSession(session);
+  async removeSession(sessionId: string): Promise<void> {
+    this.db.deleteSession(sessionId);
   }
 
-  async validateSession(sessionId: string): Promise<boolean> {
+  // return if the session is valid or not
+  async handleSession(sessionId: string): Promise<boolean> {
     const session: Session | null = await this.db.getSessionFromId(sessionId);
     if (!session) return false;
-    return compareDates(session.expiresAt, new Date());
+
+    const isExpired = !compareDates(session.expiresAt, new Date());
+    if (isExpired) {
+      this.removeSession(sessionId);
+      return false;
+    }
+
+    return !isExpired;
   }
 }
 // export current authenticator

@@ -25,9 +25,9 @@ export interface AuthInterface {
     userCredentials: UserCredentials,
     userInfo?: UserInfo,
   ): Promise<UserId>;
-  validateSession(sessionId: string): Promise<boolean>;
   signInUser(userCredentials: UserCredentials): Promise<Session>;
-  signOutFromSession(session: Session): Promise<void>;
+  removeSession(sessionId: string): Promise<void>;
+  handleSession(sessionId: string): Promise<boolean>;
   deleteUser(userId: UserId): Promise<void>;
 }
 
@@ -40,7 +40,7 @@ export interface DBInterface {
     userCredentials: UserCredentials,
   ): Promise<CredentialsState>;
   deleteUser(userId: UserId): void;
-  deleteSession(session: Session): void;
+  deleteSession(sessionId: string): void;
   deleteAllUserSessions(userId: string): void;
 
   getSessionFromId(sessionId: string): Promise<Session | null>;
